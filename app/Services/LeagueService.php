@@ -44,7 +44,8 @@ class LeagueService
             'status' => 'success',
             'league_id' => $league->id,
             'league_name' => $league->name,
-            'teams' => TeamResource::collection($league->teams),
+            //'teams' => TeamResource::collection($league->teams),
+            'standings' => $this->calculateStandings($teams, 0),
             'rounds' => $rounds,
             'next_round' => 1,
         ];
@@ -131,6 +132,9 @@ class LeagueService
             }
         }
 
+        $maxRounds = Game::where('league_id', $leagueId)->orderBy('week', 'desc')->limit(1)->value('week');
+        $nextRound = $week < $maxRounds ? $week + 1 : 0;
+
         $teams = Team::where('league_id', $leagueId)->get();
         $standings = $this->calculateStandings($teams, $week);
 
@@ -138,6 +142,7 @@ class LeagueService
             'status' => 'success',
             'games' => GameResource::collection($games),
             'standings' => $standings,
+            'next_round' => $nextRound,
         ];
     }
 
@@ -160,7 +165,10 @@ class LeagueService
         $standings = [];
 
         foreach ($teams as $team) {
-        $games = Game::where(function ($query) use ($team) {
+            if(empty($team->id)) {
+                continue;
+            }
+            $games = Game::where(function ($query) use ($team) {
             $query->where('team_a_id', $team->id)
                       ->orWhere('team_b_id', $team->id);
             })
